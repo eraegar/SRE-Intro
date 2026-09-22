@@ -18,7 +18,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: payments
-          image: ghcr.io/eraegar/quickticket-payments:f1f0f7056c7acf47fbcbf4375de85322b25d2637
+          image: ghcr.io/eraegar/quickticket-payments:c740e59f846b1cdec8e1b1e8d67f6e19d57d3f3d
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8082
