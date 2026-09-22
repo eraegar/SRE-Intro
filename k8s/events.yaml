@@ -18,7 +18,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: events
-          image: ghcr.io/eraegar/quickticket-events:945995455a7b7084e0d9e55f83910af7e70db387
+          image: ghcr.io/eraegar/quickticket-events:f1f0f7056c7acf47fbcbf4375de85322b25d2637
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
