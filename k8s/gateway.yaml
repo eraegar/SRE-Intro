@@ -20,7 +20,7 @@ spec:
       containers:
         - name: gateway
           image: ghcr.io/eraegar/quickticket-gateway:945995455a7b7084e0d9e55f83910af7e70db387
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:
