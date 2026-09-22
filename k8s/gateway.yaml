@@ -19,7 +19,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: gateway
-          image: ghcr.io/eraegar/quickticket-gateway:does-not-exist
+          image: ghcr.io/eraegar/quickticket-gateway:f1f0f7056c7acf47fbcbf4375de85322b25d2637
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
