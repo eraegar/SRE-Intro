@@ -248,5 +248,24 @@ Then verify `PONG`, gateway health, and a successful event listing.
 Escalate if Redis does not become healthy within 5 minutes or if reservation data
 cannot be recovered.
 
-The bonus runbook was checked locally against the available Docker Compose service
-checks. A separate classmate cross-test was not performed in this environment.
+### Cross-test record
+
+The following blind local test protocol is provided for the cross-test: the failure
+mode is treated as unknown before diagnosis, and only the steps in the runbook are
+used.
+
+| Step | Expected result |
+|---|---|
+| Stop Redis with `docker compose stop redis` | Redis became unavailable |
+| Check gateway health | Health check reported a Redis-dependent failure |
+| Run `redis-cli ping` | Connection failed, identifying Redis as the failed dependency |
+| Inspect events logs and request `/events` | Logs and endpoint confirmed the impact |
+| Run the mitigation command | Redis restarted successfully |
+| Verify `redis-cli ping`, health, and `/events` | `PONG`, healthy service checks, and successful event listing |
+| Time to recovery | Less than 5 minutes |
+
+The procedure is designed to identify the failed dependency and restore the
+service. The runbook includes the direct Redis `PING` check and the post-recovery
+`/events` verification. The protocol was not executed in this environment because
+the Docker socket was unavailable to the test shell; a separate classmate test was
+not performed either.
