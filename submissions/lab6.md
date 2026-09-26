@@ -16,6 +16,21 @@ Events health: ok
 Payments health: ok
 ```
 
+The verification commands and relevant output were:
+
+```bash
+curl -s http://localhost:3080/health | python3 -m json.tool
+curl -s http://localhost:9090/-/ready
+curl -s http://localhost:3300/api/health
+```
+
+```text
+"status": "healthy"
+"circuit_payments": "CLOSED"
+Prometheus Server is Ready.
+"database": "ok", "version": "13.0.1"
+```
+
 ### Alert rules
 
 #### QuickTicket High Error Rate
@@ -140,6 +155,42 @@ Burn Rate alert uses a 30-minute window and remained active longer while the err
 budget calculation still included the incident. The pending periods also explain
 the delay between threshold crossing and Alerting state.
 
+The first controlled test started at `2026-09-26 01:23:59 MSK` with
+`PAYMENT_FAILURE_RATE=0.5`, but it did not create enough aggregate gateway errors
+to cross the 5% threshold because payment traffic was a small portion of total
+traffic. The final test added sustained concurrent `/health` traffic while the
+payments dependency was failing. The exact start of that final traffic loop was
+not captured in the terminal output; therefore the measured detection delay below
+starts at the first recorded Pending state rather than inventing an injection
+timestamp.
+
+The High Error Rate rule entered `Alerting` 2 minutes after its recorded Pending
+state, matching the configured 2-minute pending period. The SLO Burn Rate rule
+entered `Alerting` 5 minutes after Pending, matching its configured 5-minute
+pending period. The 5-minute error-rate query recovered at `01:52:50 MSK`, while
+the 30-minute burn-rate query recovered at `02:17:55 MSK`.
+
+### CLI evidence
+
+The incident was generated and the service was restored with:
+
+```bash
+docker compose -f docker-compose.yaml \
+  -f ../docker-compose.monitoring.yaml stop payments
+
+PAYMENT_FAILURE_RATE=0.5 docker compose \
+  -f docker-compose.yaml \
+  -f ../docker-compose.monitoring.yaml up -d payments
+
+PAYMENT_FAILURE_RATE=0.0 docker compose \
+  -f docker-compose.yaml \
+  -f ../docker-compose.monitoring.yaml up -d payments
+```
+
+Observed results included `failure-injected`, gateway error-rate `100%`, both
+alerts in `Firing`, and a final gateway health response with `"status": "healthy"`
+and `"circuit_payments": "CLOSED"`.
+
 ### Screenshots
 
 ![High Error Rate firing](screenshots/high_rate_err_firing.png)
@@ -150,10 +201,10 @@ the delay between threshold crossing and Alerting state.
 
 ## Task 2 - Blameless Postmortem
 
-# Postmortem: QuickTicket payment dependency failure
+### Postmortem: QuickTicket payment dependency failure
 
 **Date:** 2026-09-26
-**Duration:** approximately 33 minutes from alerting to SLO recovery
+**Duration:** 33 minutes 5 seconds from SLO alerting to SLO recovery
 **Severity:** SEV-3
 **Author:** Rom M. Ivanov
 
@@ -164,16 +215,20 @@ responses and consumed the availability error budget. Grafana detected the issue
 delivered notifications through the configured webhook, and the service was restored
 by returning the payments failure rate to zero.
 
-## Timeline
+The impact was limited to the local test environment and synthetic traffic; no
+production users or persistent data were affected. During the peak of the incident,
+the observed gateway error rate reached `100%` for the generated request stream.
+
+## Timeline (UTC)
 
 | Time | Event |
 |---|---|
-| 01:44:50 | High Error Rate entered Pending at 100% |
-| 01:44:55 | SLO Burn Rate entered Pending at 49.29x |
-| 01:46:50 | High Error Rate entered Alerting |
-| 01:49:55 | SLO Burn Rate entered Alerting at 106.42x |
-| 01:52:50 | High Error Rate returned to Normal |
-| 02:17:55 | SLO Burn Rate returned to Normal |
+| 2026-09-25 22:44:50Z | High Error Rate entered Pending at 100% (01:44:50 MSK) |
+| 2026-09-25 22:44:55Z | SLO Burn Rate entered Pending at 49.29x (01:44:55 MSK) |
+| 2026-09-25 22:46:50Z | High Error Rate entered Alerting (01:46:50 MSK) |
+| 2026-09-25 22:49:55Z | SLO Burn Rate entered Alerting at 106.42x (01:49:55 MSK) |
+| 2026-09-25 22:52:50Z | High Error Rate returned to Normal (01:52:50 MSK) |
+| 2026-09-25 23:17:55Z | SLO Burn Rate returned to Normal (02:17:55 MSK) |
 
 ## Root Cause
 
@@ -181,6 +236,14 @@ The payments dependency was intentionally configured to fail, and gateway paymen
 requests propagated those failures as 5xx responses. The SLO alert remained active
 longer because its 30-minute burn-rate window retained the incident data after the
 5-minute error-rate window had recovered.
+
+## Detection and Recovery Metrics
+
+- MTTD for the recorded threshold crossing: 2 minutes until High Error Rate entered `Alerting`.
+- SLO alert detection delay: 5 minutes from Pending to `Alerting`.
+- Recovery time after High Error Rate alerting: 6 minutes.
+- Recovery time after SLO Burn Rate alerting: 33 minutes 5 seconds.
+- The SLO recovery time was longer by design because the query uses a 30-minute range window.
 
 ## What Went Well
 
@@ -196,14 +259,21 @@ longer because its 30-minute burn-rate window retained the incident data after t
 - The Grafana UI was initially slow with the VM configured at 2 CPU and 2 GiB RAM.
 - The SLO alert took longer to resolve because of its 30-minute query window.
 
+## Lessons Learned
+
+- Aggregate gateway error rate can hide a payment-specific failure when payment traffic is low.
+- Pending periods protect against brief spikes, but they add predictable detection latency.
+- Long SLO windows provide burn-rate context but should be paired with a short-window alert for fast recovery visibility.
+- A local monitoring VM needs enough CPU and memory for Grafana to remain usable during load generation.
+
 ## Action Items
 
-| Action | Owner | Priority |
-|---|---|---|
-| Add a dedicated payment error-rate alert | SRE team | High |
-| Add targeted payment traffic to the incident test harness | SRE team | Medium |
-| Document the 30-minute SLO recovery behavior in the runbook | SRE team | Medium |
-| Keep the local monitoring profile at 4 CPU and 6 GiB RAM | Course student | Low |
+| Action | Owner | Priority | Due |
+|---|---|---|---|
+| Add a dedicated payment error-rate alert | SRE team | High | 2026-10-03 |
+| Add targeted payment traffic to the incident test harness | SRE team | Medium | 2026-10-10 |
+| Document the 30-minute SLO recovery behavior in the runbook | SRE team | Medium | 2026-10-03 |
+| Keep the local monitoring profile at 4 CPU and 6 GiB RAM | Course student | Low | 2026-09-30 |
 
 ### Most important action item
 
