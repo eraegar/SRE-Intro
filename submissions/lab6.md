@@ -338,7 +338,7 @@ The procedure is designed to identify the failed dependency and restore the
 service. The runbook includes the direct Redis `PING` check and the post-recovery
 `/events` verification.
 
-`[CLASSMATE_NAME]` independently followed this runbook without being told the
+`Danil Khasanshin (d.khasanshin@innopolis.university)` independently followed this runbook without being told the
 failed component in advance. They identified Redis, completed the mitigation,
 and verified `PONG`, healthy gateway checks, and a successful `/events` request.
 The observed time to identify and resolve the issue was consistent with our
