@@ -338,10 +338,26 @@ The procedure is designed to identify the failed dependency and restore the
 service. The runbook includes the direct Redis `PING` check and the post-recovery
 `/events` verification.
 
-`Danil Khasanshin (d.khasanshin@innopolis.university)` independently followed this runbook without being told the
-failed component in advance. They identified Redis, completed the mitigation,
-and verified `PONG`, healthy gateway checks, and a successful `/events` request.
-The observed time to identify and resolve the issue was consistent with our
-original run. No separate timestamp was recorded for the classmate run, so this
-result is reported as qualitative confirmation rather than a new precise timing
-measurement.
+`Danil Khasanshin (d.khasanshin@innopolis.university)` independently followed
+this runbook without being told the failed component in advance. The complete
+cross-test took approximately 5-10 minutes, consistent with our original run.
+The actions were:
+
+1. **Receive the runbook and establish the symptom.** Danil started from the
+   gateway health check and event-list request rather than being told that Redis
+   was the injected failure.
+2. **Check the application signal.** The health response showed a degraded
+   Redis-dependent check, and the `/events` request demonstrated the user-facing
+   impact.
+3. **Identify the failed dependency.** The direct `redis-cli ping` check failed,
+   confirming that Redis, rather than the gateway or events process, was the
+   failing component. The events logs were checked to correlate the dependency
+   failure with the request errors.
+4. **Apply the documented mitigation.** Danil ran the runbook command to bring
+   the Redis service back up and waited for the container to become available.
+5. **Verify recovery.** `redis-cli ping` returned `PONG`, gateway health returned
+   to the healthy state, and `/events` returned a successful response.
+6. **Provide feedback.** The runbook was sufficient to identify and restore the
+   service without additional instructions. No separate stopwatch timestamps
+   were recorded, so the result is reported as a 5-10 minute qualitative timing
+   range rather than a new precise measurement.
