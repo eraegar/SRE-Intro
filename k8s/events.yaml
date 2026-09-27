@@ -5,7 +5,11 @@ metadata:
   labels:
     app: events
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: events
@@ -18,7 +22,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: events
-          image: ghcr.io/eraegar/quickticket-events:c740e59f846b1cdec8e1b1e8d67f6e19d57d3f3d
+          image: quickticket-events:v3
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081

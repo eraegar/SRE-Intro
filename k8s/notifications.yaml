@@ -5,7 +5,11 @@ metadata:
   labels:
     app: notifications
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: notifications
